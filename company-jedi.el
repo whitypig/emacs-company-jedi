@@ -97,14 +97,15 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
     (let ((symbol (get-text-property 0 :symbol candidate))
           (doc (get-text-property 0 :doc candidate))
           (snippet nil))
+      ;; (message "DEBUG: symbol=%s" symbol)
       (cond
-       ((and (string= symbol "f") (stringp doc))
+       ((string= symbol "f")
         ;; This is a function.
         ;; doc may have multiple lines and the first line is what we need.
         (setq snippet
               (company-jedi--make-snippet-template candidate
                                                    (car (split-string doc "[\n]"))))
-        (message "DEBUG: snippet=|%s|" snippet)
+        ;; (message "DEBUG: snippet=|%s|" snippet)
         (and snippet (yas-expand-snippet snippet)))
        (t
         ;; Do nothing for now.
@@ -112,7 +113,8 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
 
 (defun company-jedi--make-snippet-template (candidate doc)
   ;; (message "DEBUG: doc=%s" doc)
-  (when (string-match-p "^[0-9A-Za-z_]+(.*)$" doc)
+  (cond
+   ((string-match-p "^[0-9A-Za-z_]+(.*)$" doc)
     ;; doc=bisect_right(a, x, lo=0, hi=None)
     (let* ((params
             (split-string (substring-no-properties doc
@@ -139,7 +141,10 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
                             y)))))
                params
                :initial-value "")
-              ")$0"))))
+              ")$0")))
+   (t
+    ;; function with no argument
+    "()$0")))
 
 (defun company-jedi--set-backend ()
   ;; For debugging purpose
