@@ -92,6 +92,77 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
     (location nil)
     (sorted t)))
 
+(defun company-jedi--expand-snippet (candidate)
+  (when (fboundp 'yas-expand-snippet)
+    (let ((symbol (get-text-property 0 :symbol candidate))
+          (doc (get-text-property 0 :doc candidate))
+          (snippet nil))
+      (cond
+       ((and (string= symbol "f") (stringp doc))
+        ;; This is a function.
+        ;; doc may have multiple lines and the first line is what we need.
+        (setq snippet
+              (company-jedi--make-snippet-template candidate
+                                                   (car (split-string doc "[\n]"))))
+        (message "DEBUG: snippet=|%s|" snippet)
+        (and snippet (yas-expand-snippet snippet)))
+       (t
+        ;; Do nothing for now.
+        nil)))))
+
+(defun company-jedi--make-snippet-template (candidate doc)
+  ;; (message "DEBUG: doc=%s" doc)
+  (when (string-match-p "^[0-9A-Za-z_]+(.*)$" doc)
+    ;; doc=bisect_right(a, x, lo=0, hi=None)
+    (let* ((params
+            (split-string (substring-no-properties doc
+                                                   (1+ (string-match "(" doc))
+                                                   -1)
+                          "[ ,]" t))
+           (ix 0))
+      (concat "("
+              (cl-reduce
+               (lambda (x y)
+                 (concat
+                  x
+                  (cond
+                   ((string-match-p "=" y)
+                    ;; default argument
+                    (concat (if (zerop ix)
+                                ""
+                              (format "${%d:, }" (incf ix)))
+                            (format "${%d:%s}" (incf ix) y)))
+                   (t
+                    (format "%s${%d:%s}"
+                            (if (zerop ix) "" ", ")
+                            (incf ix)
+                            y)))))
+               params
+               :initial-value "")
+              ")$0"))))
+
+(defun company-jedi--set-backend ()
+  ;; For debugging purpose
+  (interactive)
+  (setq company-backends '(company-jedi-with-yasnippet)))
+
+(defun company-jedi-with-yasnippet (command &optional arg &rest ignored)
+  "`company-mode' completion back-end for `jedi-code.el'.
+Provide completion info according to COMMAND and ARG.  IGNORED, not used."
+  (interactive (list 'interactive))
+  (cl-case command
+    (interactive (company-begin-backend 'company-jedi-with-yasnippet))
+    (prefix (and (derived-mode-p 'python-mode)
+                 (not (company-in-string-or-comment))
+                 (or (company-jedi-prefix) 'stop)))
+    (candidates (cons :async 'company-jedi-candidates))
+    (meta (company-jedi-meta arg))
+    (annotation (company-jedi-annotation arg))
+    (doc-buffer (company-jedi-doc-buffer arg))
+    (location nil)
+    (sorted t)
+    (post-completion (company-jedi--expand-snippet arg))))
+
 (provide 'company-jedi)
 
 ;;; company-jedi.el ends here

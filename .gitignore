@@ -1,2 +1,5 @@
 /.cask/
 *.el
+memo.org
+*.elc
+*~
