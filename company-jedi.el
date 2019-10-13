@@ -113,38 +113,34 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
 
 (defun company-jedi--make-snippet-template (candidate doc)
   ;; (message "DEBUG: doc=%s" doc)
-  (cond
-   ((string-match-p "^[0-9A-Za-z_]+(.*)$" doc)
-    ;; doc=bisect_right(a, x, lo=0, hi=None)
-    (let* ((params
-            (split-string (substring-no-properties doc
-                                                   (1+ (string-match "(" doc))
-                                                   -1)
-                          "[ ,]" t))
-           (ix 0))
-      (concat "("
-              (cl-reduce
-               (lambda (x y)
-                 (concat
-                  x
-                  (cond
-                   ((string-match-p "=" y)
-                    ;; default argument
-                    (concat (if (zerop ix)
-                                ""
-                              (format "${%d:, }" (incf ix)))
-                            (format "${%d:%s}" (incf ix) y)))
-                   (t
-                    (format "%s${%d:%s}"
-                            (if (zerop ix) "" ", ")
-                            (incf ix)
-                            y)))))
-               params
-               :initial-value "")
-              ")$0")))
-   (t
-    ;; function with no argument
-    "()$0")))
+  (let* ((params
+          (and (string-match-p "(.*)$" doc)
+               (split-string (substring-no-properties doc
+                                                      (1+ (string-match "(" doc))
+                                                      -1)
+                             "[ ,]"
+                             t)))
+         (ix 1))
+    (concat "${1:("
+            (cl-reduce
+             (lambda (x y)
+               (concat
+                x
+                (cond
+                 ((string-match-p "=" y)
+                  ;; default argument
+                  (concat (if (= 1 ix)
+                              ""
+                            (format "${%d:, }" (incf ix)))
+                          (format "${%d:%s}" (incf ix) y)))
+                 (t
+                  (format "%s${%d:%s}"
+                          (if (= 1 ix) "" ", ")
+                          (incf ix)
+                          y)))))
+             params
+             :initial-value "")
+            ")}$0")))
 
 (defun company-jedi--set-backend ()
   ;; For debugging purpose
@@ -153,7 +149,14 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
 
 (defun company-jedi-with-yasnippet (command &optional arg &rest ignored)
   "`company-mode' completion back-end for `jedi-code.el'.
-Provide completion info according to COMMAND and ARG.  IGNORED, not used."
+Provide completion info according to COMMAND and ARG.  IGNORED, not used.
+
+When yasnippet is available, try to create and expand a snippet for a
+function candidate on completion.  If you need only a function name,
+just perform \"C-d\". This will delete all the parameters including
+parentheses. Snippets for default arguments are expanded by default,
+but you can erase them as well as separators, which are \", \", by
+\"C-d\", too."
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'company-jedi-with-yasnippet))
