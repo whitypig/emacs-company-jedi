@@ -98,9 +98,11 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
           (doc (get-text-property 0 :doc candidate))
           (snippet nil))
       ;; (message "DEBUG: symbol=%s" symbol)
+      ;; (message "DEBUG: doc=%s" doc)
       (cond
-       ((string= symbol "f")
-        ;; This is a function.
+       ((member symbol '("f" "c"))
+        ;; DEBUG: doc=bisect_right(a, x, lo=0, hi=None)...
+        ;; This can be a function.
         ;; doc may have multiple lines and the first line is what we need.
         (setq snippet
               (company-jedi--make-snippet-template candidate
@@ -114,10 +116,10 @@ Provide completion info according to COMMAND and ARG.  IGNORED, not used."
 (defun company-jedi--make-snippet-template (candidate doc)
   ;; (message "DEBUG: doc=%s" doc)
   (let* ((params
-          (and (string-match-p "(.*)$" doc)
+          (and (string-match-p (format "%s([^)]*)" candidate) doc)
                (split-string (substring-no-properties doc
-                                                      (1+ (string-match "(" doc))
-                                                      -1)
+                                                      (1+ (string-match-p "(" doc))
+                                                      (string-match-p ")" doc))
                              "[ ,]"
                              t)))
          (ix 1))
